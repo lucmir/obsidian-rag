@@ -1,91 +1,102 @@
-# Deep Notes
+# Obsidian RAG
 
-Semantic search for your Obsidian vault. Ask natural language questions about your notes and get answers grounded in your own writing, with source references.
+> Local-first semantic search and chat over your Obsidian vault — powered by LlamaIndex, Qdrant, and Ollama.
+
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Built with LlamaIndex](https://img.shields.io/badge/built%20with-LlamaIndex-7c3aed.svg)](https://docs.llamaindex.ai/)
+[![Vector DB: Qdrant](https://img.shields.io/badge/vector%20db-Qdrant-dc2626.svg)](https://qdrant.tech/)
+
+Ask natural-language questions about your notes and get streamed answers grounded in your own writing — with source citations. Everything runs on your machine by default. No vendor lock-in: every component (embedding model, vector store, chunking strategy, LLM) is swappable through environment variables.
+
+---
+
+## Why this exists
+
+I take a lot of notes in Obsidian and wanted to *talk* to them — not just search by keyword. Existing tools either send your notes to a third-party API or lock you into a single model. This project is a working RAG pipeline that's:
+
+- **Local by default** — Ollama for embeddings and inference, Qdrant on Docker, no cloud calls required
+- **Pluggable** — swap any provider via `.env`, no code changes
+- **Built to learn** — the codebase is deliberately small and uses a clean component-factory pattern so the moving parts of a RAG system are easy to read
+
+It also ships with an **Obsidian plugin** that lets you query the index directly from inside Obsidian.
+
+---
 
 ## Architecture
 
 ```
-Obsidian Vault (.md files)
-    → Frontmatter parsing (extract tags)
-    → Chunking (sentence / token / markdown)
-    → Embedding (Ollama BGE-m3 / OpenAI)
-    → Vector Store (Qdrant)
-    → Query: retrieve chunks → LLM generates answer with citations
+┌───────────────────┐
+│  Obsidian Vault   │  .md files + frontmatter
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐    ┌──────────────────┐
+│  Chunker          │───▶│  Embedder        │  Ollama (bge-m3) | OpenAI
+│  sentence/token/  │    │                  │
+│  markdown         │    └─────────┬────────┘
+└───────────────────┘              │
+                                   ▼
+                       ┌──────────────────┐
+                       │  Vector Store    │  Qdrant
+                       │  (similarity     │
+                       │  search)         │
+                       └─────────┬────────┘
+                                 │
+                                 ▼
+┌───────────────────┐    ┌──────────────────┐
+│  User Question    │───▶│  Retriever + LLM │  Ollama | OpenRouter | OpenAI
+│  (UI / API /      │    │  → streamed      │
+│  Obsidian plugin) │◀───│  answer + cites  │
+└───────────────────┘    └──────────────────┘
 ```
 
-Every component is **swappable via environment variables** — no code changes needed to switch embedding models, vector databases, chunking strategies, or LLM providers.
+Every box on the right is a factory in `deep_notes/components/`. Adding a new provider means one new `case` and a requirements line — no refactor.
 
-## Tech Stack
+---
 
-### Orchestrator: LlamaIndex
+## Tech stack
 
-[LlamaIndex](https://docs.llamaindex.ai/) is the RAG orchestration framework that ties everything together — document loading, chunking, embedding, vector storage, and query synthesis. Its plugin architecture makes every component swappable without changing application code.
-
-### Vector Database: Qdrant
-
-[Qdrant](https://qdrant.tech/) stores document embeddings and performs similarity search. It runs locally via Docker with persistent storage, exposes a dashboard at `http://localhost:6333/dashboard`, and supports filtering by metadata (tags, folders) for future use.
-
-**Alternatives:** Chroma, Weaviate, Pinecone, Milvus — add a new `case` in `components/vector_store.py`.
-
-### Embedding Models
-
-Default: **BGE-m3** via [Ollama](https://ollama.com) — runs locally, free, multilingual, strong retrieval performance.
-
-| Provider | Models | Cost | Setup |
-|---|---|---|---|
-| **Ollama** (default) | bge-m3, nomic-embed-text, mxbai-embed-large | Free (local) | `ollama pull <model>` |
-| **OpenAI** | text-embedding-3-small, text-embedding-3-large | Pay-per-token | API key required |
-
-Change with `EMBED_PROVIDER` and `EMBED_MODEL` in `.env`.
-
-### LLM Providers
-
-Default: **Ollama** with llama3.2 — fully local, free, no API key needed.
-
-| Provider | Models | Cost | Setup |
-|---|---|---|---|
-| **Ollama** (default) | llama3.2, mistral, gemma2, phi3 | Free (local) | `ollama pull <model>` |
-| **OpenRouter** | Claude, GPT-4, Llama, Gemma, Mistral, 200+ models | Pay-per-token (some free) | API key from [openrouter.ai](https://openrouter.ai) |
-| **OpenAI** | gpt-4o, gpt-4o-mini | Pay-per-token | API key required |
-
-Change with `LLM_PROVIDER` and `LLM_MODEL` in `.env`.
-
-### Chunking Strategies
-
-| Strategy | Description | Best for |
+| Layer | Choice | Why |
 |---|---|---|
-| **sentence** (default) | Splits on sentence boundaries | General purpose, preserves sentence context |
-| **token** | Splits on token count | Precise control over chunk size |
-| **markdown** | Splits on markdown headers/sections | Well-structured notes with headings |
+| RAG orchestration | [LlamaIndex](https://docs.llamaindex.ai/) | Well-supported plugin model for swappable components |
+| Vector DB | [Qdrant](https://qdrant.tech/) | Fast, runs in Docker, has a dashboard, metadata filtering |
+| Embeddings (default) | Ollama + `bge-m3` | Strong multilingual retrieval, runs locally |
+| LLM (default) | Ollama + `llama3.2` | Local, no API key |
+| UI | Streamlit | Fast prototyping with streaming support |
+| API | FastAPI | Bearer-token auth, streaming endpoints |
+| Plugin | TypeScript + esbuild | Native-feeling Obsidian integration |
 
-Change with `CHUNK_STRATEGY`, `CHUNK_SIZE`, and `CHUNK_OVERLAP` in `.env`.
+**Swap any of them** by editing `.env`:
 
-## Prerequisites
+- `EMBED_PROVIDER` — `ollama` | `openai`
+- `VECTOR_STORE_PROVIDER` — `qdrant`
+- `LLM_PROVIDER` — `ollama` | `openrouter` | `openai`
+- `CHUNK_STRATEGY` — `sentence` | `token` | `markdown`
 
-- Python 3.11+
-- Docker (for Qdrant)
-- [Ollama](https://ollama.com) (for local embeddings)
+---
 
-## Setup
+## Quick start
+
+**Prerequisites:** Python 3.11+, Docker, [Ollama](https://ollama.com)
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/yourusername/deep-notes.git
-cd deep-notes
-pip install -r requirements.txt
+git clone https://github.com/lucmir/obsidian-rag.git
+cd obsidian-rag
+pip install -r deep_notes/requirements.txt
 
 # 2. Start Qdrant
 docker compose up -d
 
 # 3. Pull the embedding model
 ollama pull bge-m3
+ollama pull llama3.2   # or configure a different LLM provider
 
 # 4. Configure
-cp .env.example .env
-# Edit .env — set VAULT_PATH and OPENROUTER_API_KEY at minimum
+cp deep_notes/.env.example deep_notes/.env
+# Edit deep_notes/.env — at minimum set VAULT_PATH to your Obsidian vault
 ```
-
-## Usage
 
 ### Index your vault
 
@@ -93,45 +104,101 @@ cp .env.example .env
 python -m deep_notes.ingest
 ```
 
-### Run the UI
+### Launch the Streamlit UI
 
 ```bash
-streamlit run app.py
+streamlit run deep_notes/app.py
 ```
 
-Open [http://localhost:8501](http://localhost:8501), then ask questions about your notes.
+Open [http://localhost:8501](http://localhost:8501) and ask away.
 
-## Configuration
+### Run the REST API
 
-All settings are in `.env`. Key options:
+```bash
+uvicorn deep_notes.api:app --reload
+```
+
+Endpoints: `POST /query`, `POST /query/stream`, `POST /ingest`, `DELETE /index`. All require a Bearer token (`API_KEY` in `.env`).
+
+---
+
+## Obsidian plugin
+
+`obsidian-plugin/` is a TypeScript plugin that calls the local API and renders results inside Obsidian. Build it with:
+
+```bash
+cd obsidian-plugin
+npm install
+npm run build
+```
+
+Then copy the built plugin folder into your vault's `.obsidian/plugins/` directory.
+
+---
+
+## Configuration reference
+
+All settings live in `deep_notes/.env`. The most useful knobs:
 
 | Variable | Default | Options |
 |---|---|---|
+| `VAULT_PATH` | — | Absolute path to your Obsidian vault |
 | `EMBED_PROVIDER` | `ollama` | `ollama`, `openai` |
-| `EMBED_MODEL` | `bge-m3` | Any model supported by the provider |
+| `EMBED_MODEL` | `bge-m3` | Any model the provider supports |
 | `VECTOR_STORE_PROVIDER` | `qdrant` | `qdrant` |
-| `CHUNK_STRATEGY` | `sentence` | `sentence`, `token`, `markdown` |
-| `CHUNK_SIZE` | `512` | Any integer |
+| `CHUNK_STRATEGY` | `markdown` | `sentence`, `token`, `markdown` |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `512` / `50` | Any integer |
 | `LLM_PROVIDER` | `openrouter` | `openrouter`, `openai`, `ollama` |
-| `LLM_MODEL` | `anthropic/claude-sonnet-4` | Any model supported by the provider |
+| `LLM_MODEL` | `anthropic/claude-sonnet-4` | Any model the provider supports |
+| `SIMILARITY_TOP_K` | `3` | Number of chunks retrieved per query |
 
-## Project Structure
+See `deep_notes/.env.example` for the full list.
+
+---
+
+## Project layout
 
 ```
-deep_notes/
-├── config.py              # Pydantic settings — all knobs in one place
-├── components/
-│   ├── embeddings.py      # Embedding model factory
-│   ├── vector_store.py    # Vector store factory
-│   ├── llm.py             # LLM factory
-│   └── chunking.py        # Chunking strategy factory
-├── ingest.py              # Vault loading + ingestion pipeline
-├── query.py               # Retrieval + answer generation
-app.py                     # Streamlit UI
+obsidian-rag/
+├── deep_notes/
+│   ├── config.py             # Pydantic settings — all knobs in one place
+│   ├── components/
+│   │   ├── embeddings.py     # Embedding model factory
+│   │   ├── vector_store.py   # Vector store factory
+│   │   ├── llm.py            # LLM factory
+│   │   └── chunking.py       # Chunking strategy factory
+│   ├── ingest.py             # Vault loading + ingestion pipeline
+│   ├── query.py              # Retrieval + answer generation
+│   ├── app.py                # Streamlit UI
+│   └── api.py                # FastAPI server
+├── obsidian-plugin/          # TypeScript Obsidian plugin
+├── docker-compose.yml        # Qdrant
+└── README.md
 ```
+
+---
 
 ## Adding a new provider
 
-1. Add a new `case` to the relevant factory in `deep_notes/components/`
-2. Add the LlamaIndex integration package to `requirements.txt`
+1. Add a `case` to the relevant factory in `deep_notes/components/`
+2. Add the LlamaIndex integration package to `deep_notes/requirements.txt`
 3. Add any new env vars to `config.py` and `.env.example`
+
+That's it — no other code needs to change.
+
+---
+
+## Roadmap
+
+- [ ] Test coverage for ingestion + retrieval edge cases
+- [ ] Metadata filtering (tags, folders) in the UI
+- [ ] Re-ranking step (e.g. Cohere Rerank, bge-reranker)
+- [ ] Incremental re-indexing (skip unchanged files)
+- [ ] Multi-vault support
+- [ ] Published Obsidian plugin via community store
+
+---
+
+## License
+
+[MIT](LICENSE)
