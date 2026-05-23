@@ -4,7 +4,6 @@ from pathlib import Path
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
-
 _ENV_FILE = Path(__file__).resolve().parent / ".env"
 
 

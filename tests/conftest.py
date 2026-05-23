@@ -7,7 +7,6 @@ the developer's local `deep_notes/.env`.
 
 import pytest
 
-
 _ENV_PREFIXES = (
     "API_",
     "VAULT_",

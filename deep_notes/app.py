@@ -6,10 +6,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
+from deep_notes.components.vector_store import clear_collection
 from deep_notes.config import get_settings
 from deep_notes.ingest import run_ingest
 from deep_notes.query import retrieve, stream_answer
-from deep_notes.components.vector_store import clear_collection
 
 defaults = get_settings()
 

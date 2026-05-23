@@ -1,4 +1,9 @@
-from llama_index.core.node_parser import NodeParser, SentenceSplitter, TokenTextSplitter, MarkdownNodeParser
+from llama_index.core.node_parser import (
+    MarkdownNodeParser,
+    NodeParser,
+    SentenceSplitter,
+    TokenTextSplitter,
+)
 
 from deep_notes.config import Settings
 

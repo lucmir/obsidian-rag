@@ -8,10 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
+from deep_notes.components.vector_store import clear_collection
 from deep_notes.config import get_settings
 from deep_notes.ingest import run_ingest
 from deep_notes.query import retrieve, stream_answer
-from deep_notes.components.vector_store import clear_collection
 
 app = FastAPI(title="Deep Notes API")
 settings = get_settings()

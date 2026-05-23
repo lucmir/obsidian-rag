@@ -6,8 +6,8 @@ from deep_notes.config import Settings
 def get_vector_store(config: Settings) -> BasePydanticVectorStore:
     match config.vector_store_provider:
         case "qdrant":
-            from qdrant_client import QdrantClient
             from llama_index.vector_stores.qdrant import QdrantVectorStore
+            from qdrant_client import QdrantClient
 
             client = QdrantClient(url=config.qdrant_url)
             return QdrantVectorStore(

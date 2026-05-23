@@ -4,10 +4,10 @@ from pathlib import Path
 import yaml
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 
-from deep_notes.config import Settings, get_settings
 from deep_notes.components.chunking import get_splitter
 from deep_notes.components.embeddings import get_embed_model
 from deep_notes.components.vector_store import get_vector_store
+from deep_notes.config import Settings, get_settings
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 

@@ -1,13 +1,13 @@
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator
 
 from llama_index.core import VectorStoreIndex
 from llama_index.core.llms import ChatMessage
 
-from deep_notes.config import Settings, get_settings
 from deep_notes.components.embeddings import get_embed_model
 from deep_notes.components.llm import get_llm
 from deep_notes.components.vector_store import get_vector_store
+from deep_notes.config import Settings, get_settings
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant that answers questions based on the user's Obsidian notes.\n"
