@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["ES2018", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "deep-notes",
+  "name": "Deep Notes",
+  "version": "0.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "RAG semantic search for your Obsidian vault",
+  "author": "Lucas",
+  "isDesktopOnly": true
+}
